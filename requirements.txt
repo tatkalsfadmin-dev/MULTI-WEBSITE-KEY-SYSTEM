@@ -1,0 +1,9 @@
+
+fastapi
+uvicorn[standard]
+python-telegram-bot
+razorpay
+sqlalchemy
+psycopg[binary]
+python-dotenv
+pydantic-settings
