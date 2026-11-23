@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tatkal Key System - Admin</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0b1020;color:#fff;font-family:Arial,sans-serif}
+header{padding:20px;background:#151d32;font-size:22px;font-weight:bold}
+nav{display:flex;flex-wrap:wrap;gap:8px;padding:12px}
+button{background:#2563eb;color:white;border:0;padding:12px;border-radius:8px;cursor:pointer}
+main{padding:15px}
+.card{background:#151d32;padding:18px;border-radius:12px;margin-bottom:15px}
+input{width:100%;padding:13px;margin:7px 0 12px;border-radius:7px;border:1px solid #39445e;background:#0b1020;color:white}
+h3{color:#60a5fa}
+.item{padding:12px;background:#202b43;margin:8px 0;border-radius:8px;overflow-wrap:anywhere}
+.small{color:#aab6cc;font-size:13px}
+</style>
+</head>
+<body>
+<header>🔑 TATKAL KEY SYSTEM</header>
+
+<nav>
+<button onclick="show('home')">Dashboard</button>
+<button onclick="show('sites')">Websites</button>
+<button onclick="show('products')">Products</button>
+<button onclick="show('licences')">Licences</button>
+</nav>
+
+<main>
+<section id="home">
+<div class="card">
+<h2>Admin Dashboard</h2>
+<p class="small">Multi-Website Management System</p>
+<h3 id="siteCount">Websites: 0</h3>
+<h3 id="productCount">Products: 0</h3>
+<h3 id="licenceCount">Licences: 0</h3>
+</div>
+</section>
+
+<section id="sites" hidden>
+<div class="card">
+<h2>Add Website</h2>
+<input id="siteName" placeholder="Website Name">
+<input id="siteUrl" placeholder="Website URL (https://...)">
+<button onclick="addSite()">Add Website</button>
+</div>
+<div class="card">
+<h3>Website List</h3>
+<div id="siteList"></div>
+</div>
+</section>
+
+<section id="products" hidden>
+<div class="card">
+<h2>Add Product</h2>
+<input id="productName" placeholder="Product Name">
+<input id="productPrice" type="number" placeholder="Price in INR">
+<input id="productDays" type="number" placeholder="Validity in Days">
+<select id="productSite" style="width:100%;padding:12px;margin-bottom:12px">
+<option value="">Select Website</option>
+</select>
+<button onclick="addProduct()">Add Product</button>
+</div>
+<div class="card">
+<h3>Product List</h3>
+<div id="productList"></div>
+</div>
+</section>
+
+<section id="licences" hidden>
+<div class="card">
+<h2>Licence Records</h2>
+<p class="small">This prototype does not generate or activate external website keys.</p>
+<div id="licenceList"></div>
+</div>
+</section>
+</main>
+
+<script>
+let sites=JSON.parse(localStorage.getItem('sites')||'[]');
+let products=JSON.parse(localStorage.getItem('products')||'[]');
+
+function save(){
+ localStorage.setItem('sites',JSON.stringify(sites));
+ localStorage.setItem('products',JSON.stringify(products));
+ render();
+}
+
+function show(id){
+ document.querySelectorAll('main section').forEach(s=>s.hidden=true);
+ document.getElementById(id).hidden=false;
+ render();
+}
+
+function addSite(){
+ let name=document.getElementById('siteName').value.trim();
+ let url=document.getElementById('siteUrl').value.trim();
+ try{
+  let parsed=new URL(url);
+  if(parsed.protocol!=='https:')throw Error();
+ }catch(e){alert('Enter a valid HTTPS URL');return}
+ if(!name){alert('Enter website name');return}
+ sites.push({name,url});
+ save();
+ document.getElementById('siteName').value='';
+ document.getElementById('siteUrl').value='';
+}
+
+function addProduct(){
+ let name=document.getElementById('productName').value.trim();
+ let price=Number(document.getElementById('productPrice').value);
+ let days=Number(document.getElementById('productDays').value);
+ let site=Number(document.getElementById('productSite').value);
+ if(!name||price<=0||days<=0||!Number.isInteger(site)||!sites[site]){
+  alert('Enter valid product details and select a website');return;
+ }
+ products.push({name,price,days,site:sites[site].name});
+ save();
+ document.getElementById('productName').value='';
+ document.getElementById('productPrice').value='';
+ document.getElementById('productDays').value='';
+}
+
+function render(){
+ document.getElementById('siteCount').textContent='Websites: '+sites.length;
+ document.getElementById('productCount').textContent='Products: '+products.length;
+ document.getElementById('licenceCount').textContent='Licences: 0';
+
+ document.getElementById('siteList').innerHTML=sites.map((s,i)=>
+ `<div class="item"><b>${escapeHTML(s.name)}</b><br>${escapeHTML(s.url)}</div>`
+ ).join('')||'No websites added';
+
+ document.getElementById('productList').innerHTML=products.map(p=>
+ `<div class="item"><b>${escapeHTML(p.name)}</b><br>₹${p.price} | ${p.days} Days<br>${escapeHTML(p.site)}</div>`
+ ).join('')||'No products added';
+
+ document.getElementById('productSite').innerHTML=
+ '<option value="">Select Website</option>'+
+ sites.map((s,i)=>`<option value="${i}">${escapeHTML(s.name)}</option>`).join('');
+
+ document.getElementById('licenceList').textContent='No licence records yet.';
+}
+
+function escapeHTML(s){
+ return String(s).replace(/[&<>"']/g,c=>({
+ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+ })[c]);
+}
+render();
+</script>
+</body>
+</html>
