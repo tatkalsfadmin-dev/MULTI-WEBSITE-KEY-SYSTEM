@@ -1,9 +1,14 @@
+
 import sqlite3
 
 DB_NAME = "tatkal_store.db"
 
+
 def get_db():
-    return sqlite3.connect(DB_NAME)
+    db = sqlite3.connect(DB_NAME)
+    db.row_factory = sqlite3.Row
+    return db
+
 
 def init_db():
     db = get_db()
@@ -45,14 +50,32 @@ def init_db():
         product_id INTEGER,
         payment_id TEXT UNIQUE,
         utr TEXT,
+        razorpay_order_id TEXT,
         status TEXT DEFAULT 'pending'
     )
+    """)
+
+    # Migrate existing orders table safely
+    cursor.execute("PRAGMA table_info(orders)")
+    columns = [row["name"] for row in cursor.fetchall()]
+
+    if "razorpay_order_id" not in columns:
+        cursor.execute(
+            "ALTER TABLE orders ADD COLUMN razorpay_order_id TEXT"
+        )
+
+    cursor.execute("""
+    CREATE UNIQUE INDEX IF NOT EXISTS
+    idx_orders_razorpay_order_id
+    ON orders(razorpay_order_id)
+    WHERE razorpay_order_id IS NOT NULL
     """)
 
     db.commit()
     db.close()
 
+
 if __name__ == "__main__":
     init_db()
     print("Database initialized successfully")
-  
+    
