@@ -1,10 +1,8 @@
-
 import os
-from telegram import (
-    Update,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup
-)
+import sqlite3
+from datetime import datetime, timezone
+
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -12,118 +10,161 @@ from telegram.ext import (
     ContextTypes
 )
 
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+from database import DB_NAME
+
+ADMIN_EMAIL = "tatkalvsadmin@gmail.com"
+ADMIN_WHATSAPP = "9933784612"
+ADMIN_TELEGRAM = "https://t.me/STATKALF"
+
 
 def main_menu():
     keyboard = [
         [
-            InlineKeyboardButton("BUY KEY 🛒", callback_data="buy"),
-            InlineKeyboardButton("MY HISTORY 📜", callback_data="history")
+            InlineKeyboardButton("BUY KEY", callback_data="buy"),
+            InlineKeyboardButton("MY HISTORY", callback_data="history")
         ],
         [
-            InlineKeyboardButton("MY KEY 🔑", callback_data="mykey"),
-            InlineKeyboardButton("MY PRICING 💎", callback_data="pricing")
+            InlineKeyboardButton("MY KEY", callback_data="mykey"),
+            InlineKeyboardButton("MY PRICING", callback_data="pricing")
         ],
         [
-            InlineKeyboardButton("UPGRADE PRICING 🚀", callback_data="upgrade"),
-            InlineKeyboardButton("SOS 🆘", callback_data="sos")
+            InlineKeyboardButton("UPGRADE PRICING", callback_data="upgrade"),
+            InlineKeyboardButton("SOS", callback_data="sos")
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
 
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "WELCOME TO TATKAL KEY STORE\n\n"
-        "Please select an option:",
+        "Welcome to Multi Website Key Store!",
         reply_markup=main_menu()
     )
+
 
 async def buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
-    if query.data == "buy":
-        text = (
-            "AVAILABLE PACKAGE\n\n"
-            "30 DAYS KEY\n"
-            "Price: ₹1200\n\n"
-            "Select BUY NOW to continue."
-        )
-        keyboard = [[
-            InlineKeyboardButton("BUY NOW", callback_data="buy_now")
-        ]]
+    user_id = str(query.from_user.id)
 
-    elif query.data == "buy_now":
-        text = (
-            "PAYMENT CHECKOUT\n\n"
-            "Payment will be available after the "
-            "Razorpay integration is configured."
-        )
-        keyboard = []
+    if query.data == "history":
+        db = sqlite3.connect(DB_NAME)
+        db.row_factory = sqlite3.Row
+        cursor = db.cursor()
 
-    elif query.data == "history":
-        text = "MY HISTORY\n\nNo purchase history found."
+        cursor.execute("""
+            SELECT id, product_id, status
+            FROM orders
+            WHERE user_id = ?
+            ORDER BY id DESC
+        """, (user_id,))
 
-        keyboard = []
+        rows = cursor.fetchall()
+        db.close()
+
+        message = "MY HISTORY\n\n"
+        if rows:
+            for row in rows:
+                message += (
+                    f"Order: {row['id']}\n"
+                    f"Product ID: {row['product_id']}\n"
+                    f"Status: {row['status']}\n\n"
+                )
+        else:
+            message += "No purchase history found."
+
+        await query.edit_message_text(message, reply_markup=main_menu())
 
     elif query.data == "mykey":
-        text = "MY KEY\n\nNo active licence found."
-        keyboard = []
+        db = sqlite3.connect(DB_NAME)
+        db.row_factory = sqlite3.Row
+        cursor = db.cursor()
+
+        cursor.execute("""
+            SELECT licence_key, expiry_date, status
+            FROM licences
+            WHERE user_id = ?
+            ORDER BY id DESC
+        """, (user_id,))
+
+        rows = cursor.fetchall()
+        db.close()
+
+        message = "MY KEY\n\n"
+        active_found = False
+
+        for row in rows:
+            expiry = datetime.fromisoformat(row["expiry_date"])
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=timezone.utc)
+
+            if row["status"] == "active" and expiry > datetime.now(timezone.utc):
+                active_found = True
+                message += (
+                    f"Key: {row['licence_key']}\n"
+                    f"Expiry: {row['expiry_date']}\n\n"
+                )
+
+        if not active_found:
+            message += "You do not have an active key."
+
+        await query.edit_message_text(message, reply_markup=main_menu())
 
     elif query.data == "pricing":
-        text = "MY PRICING\n\nNo active pricing record found."
-        keyboard = []
+        db = sqlite3.connect(DB_NAME)
+        db.row_factory = sqlite3.Row
+        cursor = db.cursor()
 
-    elif query.data == "upgrade":
-        text = (
-            "UPGRADE PRICING\n\n"
-            "30 DAYS LICENCE → 60 DAYS LICENCE\n"
-            "60 DAYS LICENCE → No upgrade available."
-        )
-        keyboard = []
+        cursor.execute("SELECT name, price, validity FROM products")
+        rows = cursor.fetchall()
+        db.close()
+
+        message = "MY PRICING\n\n"
+        for row in rows:
+            message += (
+                f"{row['name']}\n"
+                f"Price: ₹{row['price']}\n"
+                f"Validity: {row['validity']} days\n\n"
+            )
+
+        if not rows:
+            message += "No products available yet."
+
+        await query.edit_message_text(message, reply_markup=main_menu())
 
     elif query.data == "sos":
-        text = (
-            "CUSTOMER SUPPORT\n\n"
-            "Email: tatkalvsadmin@gmail.com\n"
-            "WhatsApp: 9933784612\n"
-            "Telegram: @STATKALF"
+        message = (
+            "SOS SUPPORT\n\n"
+            f"Email: {ADMIN_EMAIL}\n"
+            f"WhatsApp: {ADMIN_WHATSAPP}\n"
+            f"Telegram: {ADMIN_TELEGRAM}"
         )
-        keyboard = []
+        await query.edit_message_text(message, reply_markup=main_menu())
 
-    else:
-        text = "Invalid option."
-        keyboard = []
-
-    if keyboard:
-        keyboard.append([
-            InlineKeyboardButton("BACK TO MENU", callback_data="menu")
-        ])
-    elif query.data != "menu":
-        keyboard = [[
-            InlineKeyboardButton("BACK TO MENU", callback_data="menu")
-        ]]
-
-    if query.data == "menu":
+    elif query.data == "buy":
         await query.edit_message_text(
-            "WELCOME TO TATKAL KEY STORE\n\nPlease select an option:",
+            "BUY KEY\n\nPayment setup is being completed.",
             reply_markup=main_menu()
         )
-    else:
+
+    elif query.data == "upgrade":
         await query.edit_message_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard)
+            "UPGRADE PRICING\n\nUpgrade system is being completed.",
+            reply_markup=main_menu()
         )
 
-def main():
-    if not TOKEN:
+
+def run_bot():
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    if not token:
         raise RuntimeError("TELEGRAM_BOT_TOKEN is missing")
 
-    app = Application.builder().token(TOKEN).build()
+    app = Application.builder().token(token).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(buttons))
     app.run_polling()
 
+
 if __name__ == "__main__":
-    main()
-  
+    run_bot()
