@@ -122,3 +122,21 @@ def list_orders(x_admin_key: str = Header(default="")):
     db.close()
 
     return {"orders": result}
+@router.get("/licences")
+def list_licences(x_admin_key: str = Header(default="")):
+    verify_admin(x_admin_key)
+
+    db = sqlite3.connect(DB_NAME)
+    db.row_factory = sqlite3.Row
+    cursor = db.cursor()
+
+    cursor.execute("""
+        SELECT id, user_id, product_id, licence_key, expiry_date, status
+        FROM licences
+        ORDER BY id DESC
+    """)
+
+    result = [dict(row) for row in cursor.fetchall()]
+    db.close()
+
+    return {"licences": result}
