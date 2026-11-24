@@ -104,3 +104,21 @@ def list_products(x_admin_key: str = Header(default="")):
 
     db.close()
     return {"products": result}
+@router.get("/orders")
+def list_orders(x_admin_key: str = Header(default="")):
+    verify_admin(x_admin_key)
+
+    db = sqlite3.connect(DB_NAME)
+    db.row_factory = sqlite3.Row
+    cursor = db.cursor()
+
+    cursor.execute("""
+        SELECT id, user_id, product_id, payment_id, status
+        FROM orders
+        ORDER BY id DESC
+    """)
+
+    result = [dict(row) for row in cursor.fetchall()]
+    db.close()
+
+    return {"orders": result}
