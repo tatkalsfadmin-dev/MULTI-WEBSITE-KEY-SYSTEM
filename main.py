@@ -62,3 +62,6 @@ def licences():
     db.close()
 
     return {"licences": result}
+from admin import router as admin_router
+
+app.include_router(admin_router)
