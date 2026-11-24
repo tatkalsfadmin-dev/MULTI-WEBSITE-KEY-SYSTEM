@@ -65,3 +65,5 @@ def licences():
 from admin import router as admin_router
 
 app.include_router(admin_router)
+from webhook import router as webhook_router
+app.include_router(webhook_router)
